@@ -1,0 +1,36 @@
+version: "3"
+
+silent: true
+
+tasks:
+  tag: eval "$(slot render pizzaz)"
+
+  # Lint & Format
+  # ---------
+  format:
+    desc: format go project
+    cmds:
+      - >
+        golangci-lint fmt
+
+      - >
+        golangci-lint run
+        --disable=godox
+        --fix
+        --issues-exit-code 0
+        &> /dev/null
+    sources:
+      - ./**/*.go
+      - .golangci.yml
+
+  lint:
+    desc: lint go project
+    cmds:
+      - >
+        golangci-lint run \
+          --disable=godox \
+          --output.text.path=stdout \
+          --output.text.colors=true
+    sources:
+      - ./**/*.go
+      - .golangci.yml

@@ -36,6 +36,7 @@ func Compare(dirA, dirB string, scanA, scanB *Scan) bool {
 		showDuplicates(scanA, scanB)
 
 		fmt.Println(strings.Repeat("=", 80))
+
 		return true
 	}
 
@@ -48,6 +49,7 @@ func Compare(dirA, dirB string, scanA, scanB *Scan) bool {
 	reportDiff(diff, scanA, scanB)
 
 	fmt.Println(strings.Repeat("=", 80))
+
 	return false
 }
 
@@ -83,18 +85,21 @@ func computeDiff(scanA, scanB *Scan) Diff {
 func reportDiff(diff Diff, scanA, scanB *Scan) {
 	if len(diff.MissingInB) > 0 {
 		totalMissing := 0
+
 		for _, count := range diff.MissingInB {
 			totalMissing += count
 		}
+
 		fmt.Printf("Missing in B: %d files (%d unique)\n\n", totalMissing, len(diff.MissingInB))
 
 		hashes := sortedKeys(diff.MissingInB)
+
 		limit := 10
 		if len(hashes) < limit {
 			limit = len(hashes)
 		}
 
-		for i := 0; i < limit; i++ {
+		for i := range limit {
 			hash := hashes[i]
 			count := diff.MissingInB[hash]
 			files := diff.HashToA[hash]
@@ -103,6 +108,7 @@ func reportDiff(diff Diff, scanA, scanB *Scan) {
 				fmt.Printf("  [%s...] (%s)\n", hash[:16], files[0])
 			} else {
 				fmt.Printf("  [%s...] (need %d more copies)\n", hash[:16], count)
+
 				for _, f := range files {
 					fmt.Printf("    - %s\n", f)
 				}
@@ -112,23 +118,27 @@ func reportDiff(diff Diff, scanA, scanB *Scan) {
 		if len(hashes) > limit {
 			fmt.Printf("  ... and %d more\n", len(hashes)-limit)
 		}
+
 		fmt.Println()
 	}
 
 	if len(diff.MissingInA) > 0 {
 		totalExtra := 0
+
 		for _, count := range diff.MissingInA {
 			totalExtra += count
 		}
+
 		fmt.Printf("Extra in B: %d files (%d unique)\n\n", totalExtra, len(diff.MissingInA))
 
 		hashes := sortedKeys(diff.MissingInA)
+
 		limit := 10
 		if len(hashes) < limit {
 			limit = len(hashes)
 		}
 
-		for i := 0; i < limit; i++ {
+		for i := range limit {
 			hash := hashes[i]
 			count := diff.MissingInA[hash]
 			files := diff.HashToB[hash]
@@ -137,6 +147,7 @@ func reportDiff(diff Diff, scanA, scanB *Scan) {
 				fmt.Printf("  [%s...] (%s)\n", hash[:16], files[0])
 			} else {
 				fmt.Printf("  [%s...] (%d extra copies)\n", hash[:16], count)
+
 				for _, f := range files {
 					fmt.Printf("    - %s\n", f)
 				}
@@ -146,14 +157,17 @@ func reportDiff(diff Diff, scanA, scanB *Scan) {
 		if len(hashes) > limit {
 			fmt.Printf("  ... and %d more\n", len(hashes)-limit)
 		}
+
 		fmt.Println()
 	}
 }
 
 // showDuplicates shows information about duplicates and different paths.
 func showDuplicates(scanA, scanB *Scan) {
-	var duplicatesA, duplicatesB []string
-	var differentPaths []string
+	var (
+		duplicatesA, duplicatesB []string
+		differentPaths           []string
+	)
 
 	for hash, filesA := range scanA.HashToFiles {
 		if len(filesA) > 1 {
@@ -181,6 +195,7 @@ func showDuplicates(scanA, scanB *Scan) {
 		if len(duplicatesA) > 0 {
 			fmt.Printf("  In A: %d sets\n", len(duplicatesA))
 		}
+
 		if len(duplicatesB) > 0 {
 			fmt.Printf("  In B: %d sets\n", len(duplicatesB))
 		}
@@ -197,17 +212,21 @@ func pathsEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
+
 	sortedA := make([]string, len(a))
 	sortedB := make([]string, len(b))
+
 	copy(sortedA, a)
 	copy(sortedB, b)
 	sort.Strings(sortedA)
 	sort.Strings(sortedB)
+
 	for i := range sortedA {
 		if sortedA[i] != sortedB[i] {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -217,6 +236,8 @@ func sortedKeys(m map[string]int) []string {
 	for k := range m {
 		keys = append(keys, k)
 	}
+
 	sort.Strings(keys)
+
 	return keys
 }

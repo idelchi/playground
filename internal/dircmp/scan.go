@@ -38,6 +38,7 @@ type fileResult struct {
 var bufPool = sync.Pool{
 	New: func() any {
 		b := make([]byte, 32*1024) // 32KB buffer.
+
 		return &b
 	},
 }
@@ -51,6 +52,7 @@ func hashFile(path string) (string, error) {
 	defer f.Close()
 
 	h := sha256.New()
+
 	bufPtr := bufPool.Get().(*[]byte)
 	defer bufPool.Put(bufPtr)
 
@@ -83,11 +85,14 @@ func Dir(dir string, logger Logger) (*Scan, error) {
 	jobs := make(chan fileJob, numWorkers*2)
 	results := make(chan fileResult, numWorkers*2)
 
-	var wg sync.WaitGroup
-	var filesFound, filesHashed atomic.Int64
+	var (
+		wg                      sync.WaitGroup
+		filesFound, filesHashed atomic.Int64
+	)
 
 	// Start worker goroutines.
-	for i := 0; i < numWorkers; i++ {
+
+	for range numWorkers {
 		wg.Add(1)
 
 		go func() {
@@ -121,23 +126,34 @@ func Dir(dir string, logger Logger) (*Scan, error) {
 		HashCounts:  make(map[string]int),
 		HashToFiles: make(map[string][]string),
 	}
-	var mu sync.Mutex
-	var collectWg sync.WaitGroup
+
+	var (
+		mu        sync.Mutex
+		collectWg sync.WaitGroup
+	)
+
 	collectWg.Add(1)
+
 	go func() {
 		defer collectWg.Done()
+
 		for result := range results {
 			file := File{
 				Hash: result.hash,
 				Path: result.relPath,
 				Size: result.size,
 			}
+
 			mu.Lock()
+
 			scan.Files = append(scan.Files, file)
 			scan.HashCounts[result.hash]++
+
 			scan.HashToFiles[result.hash] = append(scan.HashToFiles[result.hash], result.relPath)
 			scan.TotalFiles++
+
 			scan.TotalSize += result.size
+
 			mu.Unlock()
 		}
 	}()
@@ -146,9 +162,11 @@ func Dir(dir string, logger Logger) (*Scan, error) {
 	conf := fastwalk.Config{
 		Follow: false,
 	}
+
 	err = fastwalk.Walk(&conf, absDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+
 			return nil
 		}
 
@@ -159,6 +177,7 @@ func Dir(dir string, logger Logger) (*Scan, error) {
 		info, err := d.Info()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+
 			return nil
 		}
 

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
+
 	"gitlab.garfield-labs.com/apps/dircmp/internal/dircmp"
 )
 
@@ -29,15 +31,16 @@ func (c CLI) Execute() error {
 	var opts Options
 
 	cmd := &cobra.Command{
-		Use:     "dircmp [flags] <dir_a> <dir_b>",
-		Short:   "Compare two directories by file content",
-		Long:    "Compares two directories by file content.\nReturns 'ok' if both contain identical files (regardless of names/paths).\nReturns 'fail' with detailed report if differences exist.",
+		Use:   "dircmp [flags] <dir_a> <dir_b>",
+		Short: "Compare two directories by file content",
+		Long: heredoc.Doc(`
+			Compares two directories by file content.
+		`),
 		Version: c.version,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(args[0], args[1], &opts)
 		},
-		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 

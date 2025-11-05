@@ -1,0 +1,11 @@
+include:
+  - project: ci/templates
+    ref: main
+    file:
+      - resources/workflow.yml
+      - resources/registry.yml
+
+  - component: $CI_SERVER_FQDN/ci/templates/gorelease@main
+
+stages:
+  - release

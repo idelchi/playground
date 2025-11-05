@@ -4,10 +4,6 @@ A tool to compare two directories by file content.
 
 ---
 
-[![Go Reference](https://pkg.go.dev/badge/gitlab.garfield-labs.com/apps/dircmp.svg)](https://pkg.go.dev/gitlab.garfield-labs.com/apps/dircmp)
-[![Go Report Card](https://goreportcard.com/badge/gitlab.garfield-labs.com/apps/dircmp)](https://goreportcard.com/report/gitlab.garfield-labs.com/apps/dircmp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 Compare two directories by file content, regardless of file names or paths.
 
 ## What it does
