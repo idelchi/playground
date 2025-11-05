@@ -1,3 +1,5 @@
-module dircmp
+module gitlab.garfield-labs.com/apps/dircmp
 
-go 1.24.7
+go 1.23
+
+require github.com/charlievieth/fastwalk v1.0.9

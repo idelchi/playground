@@ -116,12 +116,19 @@ Extra in B: 1 files (1 unique)
 
 ## How It Works
 
-1. Recursively scan both directories
-2. Compute SHA256 hash for each file
+1. Fast directory traversal using `fastwalk`
+2. Concurrent file hashing with worker pool (uses all CPU cores)
 3. Build multisets of hashes: `{hash: count}`
 4. Compare multisets:
    - Match: all hashes have same counts in both dirs
    - Fail: report what's missing/extra
+
+## Performance
+
+- Uses `github.com/charlievieth/fastwalk` for fast directory walking
+- Concurrent file hashing (worker pool = number of CPU cores)
+- Buffer pooling to reduce memory allocations
+- Optimized for large directory trees
 
 ## Notes
 

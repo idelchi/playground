@@ -6,8 +6,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
+
+	"github.com/charlievieth/fastwalk"
 )
 
 // File represents a file with its hash and path
@@ -67,7 +71,21 @@ func main() {
 	os.Exit(1)
 }
 
-// scan recursively scans a directory and computes file hashes
+// fileJob represents a file to hash
+type fileJob struct {
+	path    string
+	relPath string
+	size    int64
+}
+
+// fileResult represents a hashed file
+type fileResult struct {
+	hash    string
+	relPath string
+	size    int64
+}
+
+// scan recursively scans a directory and computes file hashes concurrently
 func scan(dir string) (*DirScan, error) {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
@@ -82,50 +100,108 @@ func scan(dir string) (*DirScan, error) {
 		return nil, fmt.Errorf("not a directory: %s", absDir)
 	}
 
+	// Setup worker pool
+	numWorkers := runtime.NumCPU()
+	jobs := make(chan fileJob, numWorkers*2)
+	results := make(chan fileResult, numWorkers*2)
+	var wg sync.WaitGroup
+
+	// Start workers
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				hash, err := hashFile(job.path)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to hash %s: %v\n", job.relPath, err)
+					continue
+				}
+				results <- fileResult{
+					hash:    hash,
+					relPath: job.relPath,
+					size:    job.size,
+				}
+			}
+		}()
+	}
+
+	// Collect results in background
 	scan := &DirScan{
 		Files:       []File{},
 		HashCounts:  make(map[string]int),
 		HashToFiles: make(map[string][]string),
 	}
+	var mu sync.Mutex
+	var collectWg sync.WaitGroup
+	collectWg.Add(1)
+	go func() {
+		defer collectWg.Done()
+		for result := range results {
+			file := File{
+				Hash: result.hash,
+				Path: result.relPath,
+				Size: result.size,
+			}
+			mu.Lock()
+			scan.Files = append(scan.Files, file)
+			scan.HashCounts[result.hash]++
+			scan.HashToFiles[result.hash] = append(scan.HashToFiles[result.hash], result.relPath)
+			scan.TotalFiles++
+			scan.TotalSize += result.size
+			mu.Unlock()
+		}
+	}()
 
-	err = filepath.Walk(absDir, func(path string, info os.FileInfo, err error) error {
+	// Walk directory using fastwalk
+	conf := fastwalk.Config{
+		Follow: false,
+	}
+	err = fastwalk.Walk(&conf, absDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 			return nil
 		}
 
-		if !info.Mode().IsRegular() {
+		if !d.Type().IsRegular() {
 			return nil
 		}
 
-		hash, err := hashFile(path)
+		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to hash %s: %v\n", path, err)
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 			return nil
 		}
 
 		relPath, _ := filepath.Rel(absDir, path)
 
-		file := File{
-			Hash: hash,
-			Path: relPath,
-			Size: info.Size(),
+		jobs <- fileJob{
+			path:    path,
+			relPath: relPath,
+			size:    info.Size(),
 		}
-
-		scan.Files = append(scan.Files, file)
-		scan.HashCounts[hash]++
-		scan.HashToFiles[hash] = append(scan.HashToFiles[hash], relPath)
-		scan.TotalFiles++
-		scan.TotalSize += info.Size()
 
 		return nil
 	})
+
+	close(jobs)
+	wg.Wait()
+	close(results)
+	collectWg.Wait()
 
 	if err != nil {
 		return nil, err
 	}
 
 	return scan, nil
+}
+
+// Buffer pool to reduce allocations
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 32*1024) // 32KB buffer
+		return &b
+	},
 }
 
 // hashFile computes SHA256 hash of a file
@@ -137,7 +213,10 @@ func hashFile(path string) (string, error) {
 	defer f.Close()
 
 	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
+	bufPtr := bufPool.Get().(*[]byte)
+	defer bufPool.Put(bufPtr)
+
+	if _, err := io.CopyBuffer(h, f, *bufPtr); err != nil {
 		return "", err
 	}
 
