@@ -13,34 +13,36 @@ import (
 	"github.com/charlievieth/fastwalk"
 )
 
-// Logger interface for progress reporting.
+// Logger represents the interface for progress reporting.
 type Logger interface {
-	Logf(format string, args ...interface{})
+	Printlnf(format string, args ...any)
 }
 
-// fileJob represents a file to hash.
+// fileJob represents a file to be hashed.
 type fileJob struct {
 	path    string
 	relPath string
 	size    int64
 }
 
-// fileResult represents a hashed file.
+// fileResult represents a hashed file result.
 type fileResult struct {
 	hash    string
 	relPath string
 	size    int64
 }
 
-// Buffer pool to reduce allocations.
+// bufPool is a buffer pool to reduce memory allocations during file hashing.
+//
+//nolint:gochecknoglobals // This is a shared pool for performance.
 var bufPool = sync.Pool{
-	New: func() interface{} {
-		b := make([]byte, 32*1024) // 32KB buffer
+	New: func() any {
+		b := make([]byte, 32*1024) // 32KB buffer.
 		return &b
 	},
 }
 
-// hashFile computes SHA256 hash of a file.
+// hashFile computes the SHA256 hash of a file using a pooled buffer.
 func hashFile(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -59,7 +61,7 @@ func hashFile(path string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// Dir scans a directory and computes file hashes concurrently.
+// Dir scans a directory recursively and computes file hashes concurrently.
 func Dir(dir string, logger Logger) (*Scan, error) {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
@@ -70,35 +72,38 @@ func Dir(dir string, logger Logger) (*Scan, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if !info.IsDir() {
 		return nil, fmt.Errorf("not a directory: %s", absDir)
 	}
 
-	// Setup worker pool
 	numWorkers := runtime.NumCPU()
-	logger.Logf("Using %d workers for hashing", numWorkers)
+	logger.Printlnf("Using %d workers for hashing", numWorkers)
+
 	jobs := make(chan fileJob, numWorkers*2)
 	results := make(chan fileResult, numWorkers*2)
-	var wg sync.WaitGroup
 
-	// Progress tracking
+	var wg sync.WaitGroup
 	var filesFound, filesHashed atomic.Int64
 
-	// Start workers
+	// Start worker goroutines.
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
+
 			for job := range jobs {
 				hash, err := hashFile(job.path)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "warning: failed to hash %s: %v\n", job.relPath, err)
+
 					continue
 				}
 
 				hashed := filesHashed.Add(1)
 				if hashed%100 == 0 {
-					logger.Logf("Hashed %d files...", hashed)
+					logger.Printlnf("Hashed %d files...", hashed)
 				}
 
 				results <- fileResult{
@@ -161,7 +166,7 @@ func Dir(dir string, logger Logger) (*Scan, error) {
 
 		found := filesFound.Add(1)
 		if found%1000 == 0 {
-			logger.Logf("Found %d files...", found)
+			logger.Printlnf("Found %d files...", found)
 		}
 
 		jobs <- fileJob{

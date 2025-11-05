@@ -5,14 +5,15 @@ import (
 	"os"
 )
 
-// Logger handles conditional output based on verbosity.
+// Logger represents a simple logger with verbosity control.
 type Logger struct {
+	// Verbose indicates whether verbose logging is enabled.
 	Verbose bool
 }
 
-// Logf prints a formatted message to stderr if Verbose is true.
-func (l *Logger) Logf(format string, args ...interface{}) {
+// Printlnf prints a formatted message to stderr if Verbose is true.
+func (l Logger) Printlnf(format string, args ...any) {
 	if l.Verbose {
-		fmt.Fprintf(os.Stderr, format+"\n", args...)
+		fmt.Fprintf(os.Stderr, "[dircmp]: "+format+"\n", args...)
 	}
 }

@@ -1,26 +1,37 @@
-// Package dircmp provides directory comparison functionality.
 package dircmp
 
-// File represents a file with its hash and path.
+// File represents a file with its content hash, path, and size.
 type File struct {
+	// Hash is the SHA256 hash of the file content.
 	Hash string
+	// Path is the relative path of the file.
 	Path string
+	// Size is the file size in bytes.
 	Size int64
 }
 
-// Scan holds scan results for a directory.
+// Scan represents the scan results for a directory.
 type Scan struct {
-	Files       []File
-	HashCounts  map[string]int      // hash -> count
-	HashToFiles map[string][]string // hash -> file paths
-	TotalFiles  int
-	TotalSize   int64
+	// Files holds all scanned files.
+	Files []File
+	// HashCounts maps file hashes to their occurrence count.
+	HashCounts map[string]int
+	// HashToFiles maps file hashes to their relative paths.
+	HashToFiles map[string][]string
+	// TotalFiles is the total number of files scanned.
+	TotalFiles int
+	// TotalSize is the total size of all files in bytes.
+	TotalSize int64
 }
 
-// Diff represents differences between directories.
+// Diff represents the differences between two directory scans.
 type Diff struct {
-	MissingInB map[string]int      // hash -> count (files in A not in B)
-	MissingInA map[string]int      // hash -> count (files in B not in A)
-	HashToA    map[string][]string // hash -> paths in A
-	HashToB    map[string][]string // hash -> paths in B
+	// MissingInB maps hashes to the count of files in A but not in B (or not enough copies in B).
+	MissingInB map[string]int
+	// MissingInA maps hashes to the count of files in B but not in A (or not enough copies in A).
+	MissingInA map[string]int
+	// HashToA maps file hashes to their paths in directory A.
+	HashToA map[string][]string
+	// HashToB maps file hashes to their paths in directory B.
+	HashToB map[string][]string
 }

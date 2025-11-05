@@ -8,28 +8,29 @@ import (
 	"gitlab.garfield-labs.com/apps/dircmp/internal/dircmp"
 )
 
-// CLI wraps the command-line interface.
+// CLI represents the command-line interface.
 type CLI struct {
 	version string
 }
 
-// Options holds all command-line flags.
+// Options represents the CLI options.
 type Options struct {
+	// Verbose indicates whether verbose output is enabled.
 	Verbose bool
 }
 
-// New creates a new CLI instance.
-func New(version string) *CLI {
-	return &CLI{version: version}
+// New creates a new CLI instance with the given version.
+func New(version string) CLI {
+	return CLI{version: version}
 }
 
-// Execute runs the CLI application.
-func (c *CLI) Execute() error {
+// Execute runs the CLI with the provided arguments.
+func (c CLI) Execute() error {
 	var opts Options
 
 	cmd := &cobra.Command{
-		Use:     "dircmp <dir_a> <dir_b>",
-		Short:   "Compare two directories by content",
+		Use:     "dircmp [flags] <dir_a> <dir_b>",
+		Short:   "Compare two directories by file content",
 		Long:    "Compares two directories by file content.\nReturns 'ok' if both contain identical files (regardless of names/paths).\nReturns 'fail' with detailed report if differences exist.",
 		Version: c.version,
 		Args:    cobra.ExactArgs(2),
@@ -40,32 +41,35 @@ func (c *CLI) Execute() error {
 		SilenceErrors: true,
 	}
 
-	// Define flags
-	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "enable verbose output")
+	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Show verbose output")
 
-	return cmd.Execute()
+	cmd.Flags().SortFlags = false
+
+	return cmd.Execute() //nolint:wrapcheck // Error does not need additional wrapping.
 }
 
-// run executes the directory comparison.
+// run executes the directory comparison logic.
 func run(dirA, dirB string, opts *Options) error {
-	logger := &Logger{Verbose: opts.Verbose}
+	logger := Logger{Verbose: opts.Verbose}
 
-	// Scan both directories
-	logger.Logf("Scanning %s...", dirA)
+	logger.Printlnf("Scanning %s...", dirA)
+
 	scanA, err := dircmp.Dir(dirA, logger)
 	if err != nil {
-		return fmt.Errorf("error scanning %s: %w", dirA, err)
+		return fmt.Errorf("scanning %s: %w", dirA, err)
 	}
-	logger.Logf("Found %d files (%d unique) in %s", scanA.TotalFiles, len(scanA.HashCounts), dirA)
 
-	logger.Logf("Scanning %s...", dirB)
+	logger.Printlnf("Found %d files (%d unique) in %s", scanA.TotalFiles, len(scanA.HashCounts), dirA)
+
+	logger.Printlnf("Scanning %s...", dirB)
+
 	scanB, err := dircmp.Dir(dirB, logger)
 	if err != nil {
-		return fmt.Errorf("error scanning %s: %w", dirB, err)
+		return fmt.Errorf("scanning %s: %w", dirB, err)
 	}
-	logger.Logf("Found %d files (%d unique) in %s", scanB.TotalFiles, len(scanB.HashCounts), dirB)
 
-	// Compare and report
+	logger.Printlnf("Found %d files (%d unique) in %s", scanB.TotalFiles, len(scanB.HashCounts), dirB)
+
 	if !dircmp.Compare(dirA, dirB, scanA, scanB) {
 		os.Exit(1)
 	}

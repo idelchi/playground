@@ -1,21 +1,25 @@
 # dircmp
 
-Compare two directories by content, regardless of file names or paths.
+A tool to compare two directories by file content.
 
-## Overview
+---
 
-`dircmp` compares two directory trees and returns `ok` if they contain the exact same files by content, or `fail` with a detailed report if they differ.
+[![Go Reference](https://pkg.go.dev/badge/gitlab.garfield-labs.com/apps/dircmp.svg)](https://pkg.go.dev/gitlab.garfield-labs.com/apps/dircmp)
+[![Go Report Card](https://goreportcard.com/badge/gitlab.garfield-labs.com/apps/dircmp)](https://goreportcard.com/report/gitlab.garfield-labs.com/apps/dircmp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Files are compared using SHA256 hashes. File names, paths, and directory structure don't matter—only that every file's content in directory A exists in directory B and vice versa.
+Compare two directories by file content, regardless of file names or paths.
 
-## Key Concept
+## What it does
 
-Think of it as comparing multisets of file contents:
-- `hash(all files in dir1/**)` == `hash(all files in dir2/**)`
+`dircmp` compares two directory trees and returns `ok` if they contain the exact same files by content, or `fail` with a detailed report showing what differs.
 
-If dir1 has files with content [A, B, C] and dir2 has files with content [B, A, C], they match—even if names/paths differ.
+Files are compared using SHA256 hashes. File names, paths, and directory structure don't matter—only that every file's content in directory A exists in directory B (and vice versa).
 
-If dir1 has [A, A, B] and dir2 has [A, B], they don't match (different counts).
+**Think of it as comparing multisets of file contents:**
+
+- dir1: `[A, B, C]` vs dir2: `[B, A, C]` → **ok** (same content, different order/names)
+- dir1: `[A, A, B]` vs dir2: `[A, B]` → **fail** (different counts)
 
 ## Installation
 
@@ -23,21 +27,39 @@ If dir1 has [A, A, B] and dir2 has [A, B], they don't match (different counts).
 go build -o dircmp
 ```
 
+Or install directly:
+
+```bash
+go install gitlab.garfield-labs.com/apps/dircmp@latest
+```
+
+## Quick start
+
+```bash
+# Compare two directories
+dircmp /path/to/backup /path/to/restore
+
+# With verbose progress reporting
+dircmp -v /large/dir1 /large/dir2
+```
+
 ## Usage
 
 ```bash
-dircmp [options] <dir_a> <dir_b>
+dircmp [flags] <dir_a> <dir_b>
 ```
 
-### Options
+**Flags:**
 
-- `-v`, `--verbose`: Enable verbose output with progress reporting
+- `-v`, `--verbose` - Show verbose output with progress reporting
+- `--version` - Show version information
+- `-h`, `--help` - Show help message
 
-### Exit Codes
+**Exit codes:**
 
-- `0`: Directories match
-- `1`: Directories differ
-- `2`: Error (directory not found, permission denied, etc.)
+- `0` - Directories match
+- `1` - Directories differ
+- `2` - Error occurred
 
 ## Examples
 
@@ -135,33 +157,37 @@ DIRECTORY COMPARISON
 ...
 ```
 
-## Use Cases
+## How it works
 
-- Verify backup integrity (content matches, regardless of file organization)
-- Compare deployment directories across servers
-- Validate data migrations
-- Check if two archives contain the same files
-- CI/CD verification
+1. Recursively scan both directories with `fastwalk`
+2. Compute SHA256 hash for each file (concurrent workers = CPU cores)
+3. Build multisets: `{hash: count}`
+4. Compare multisets - match if all hashes have same counts
 
-## How It Works
+**Performance optimizations:**
 
-1. Fast directory traversal using `fastwalk`
-2. Concurrent file hashing with worker pool (uses all CPU cores)
-3. Build multisets of hashes: `{hash: count}`
-4. Compare multisets:
-   - Match: all hashes have same counts in both dirs
-   - Fail: report what's missing/extra
-
-## Performance
-
-- Uses `github.com/charlievieth/fastwalk` for fast directory walking
-- Concurrent file hashing (worker pool = number of CPU cores)
+- Fast directory traversal using `github.com/charlievieth/fastwalk`
+- Concurrent file hashing using all available CPU cores
 - Buffer pooling to reduce memory allocations
 - Optimized for large directory trees
 
+## Use cases
+
+**Verify backup integrity**
+Content matches, regardless of file organization or naming.
+
+**Compare deployments**
+Ensure two servers have identical files deployed.
+
+**Validate migrations**
+Confirm data copied correctly with different organization.
+
+**CI/CD verification**
+Check build artifacts match expected content.
+
 ## Notes
 
-- Only regular files are compared (symlinks, devices, etc. are ignored)
-- Empty directories are ignored
-- Warnings printed for unreadable files (comparison continues)
-- File counts must match exactly (duplicates matter)
+- Only regular files compared (symlinks, devices ignored)
+- Empty directories ignored
+- Unreadable files generate warnings but don't stop comparison
+- Duplicate files (same content, multiple copies) are counted
