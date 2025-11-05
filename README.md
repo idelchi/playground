@@ -26,8 +26,12 @@ go build -o dircmp
 ## Usage
 
 ```bash
-dircmp <dir_a> <dir_b>
+dircmp [options] <dir_a> <dir_b>
 ```
+
+### Options
+
+- `-v`, `--verbose`: Enable verbose output with progress reporting
 
 ### Exit Codes
 
@@ -104,6 +108,31 @@ Extra in B: 1 files (1 unique)
   [5d41402abc4b2a76...] (new.txt)
 
 ================================================================================
+```
+
+### Verbose mode
+
+Enable verbose output to see progress during scanning:
+
+```bash
+$ dircmp -v large_dir1/ large_dir2/
+Scanning large_dir1/...
+Using 16 workers for hashing
+Found 1000 files...
+Hashed 100 files...
+Hashed 200 files...
+Found 1500 files (1200 unique) in large_dir1/
+Scanning large_dir2/...
+Using 16 workers for hashing
+Found 1000 files...
+Hashed 100 files...
+Hashed 200 files...
+Found 1500 files (1200 unique) in large_dir2/
+
+================================================================================
+DIRECTORY COMPARISON
+================================================================================
+...
 ```
 
 ## Use Cases

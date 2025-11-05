@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -10,8 +11,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/charlievieth/fastwalk"
+)
+
+var (
+	verbose bool
+	version = "dev"
 )
 
 // File represents a file with its hash and path
@@ -38,37 +45,69 @@ type Diff struct {
 	HashToB    map[string][]string // hash -> paths in B
 }
 
+func init() {
+	flag.BoolVar(&verbose, "verbose", false, "enable verbose output")
+	flag.BoolVar(&verbose, "v", false, "enable verbose output (shorthand)")
+	flag.Usage = usage
+}
+
+func usage() {
+	fmt.Fprintf(os.Stderr, "dircmp %s\n\n", version)
+	fmt.Fprintln(os.Stderr, "Usage: dircmp [options] <dir_a> <dir_b>")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Compares two directories by file content.")
+	fmt.Fprintln(os.Stderr, "Returns 'ok' if both contain identical files (regardless of names/paths).")
+	fmt.Fprintln(os.Stderr, "Returns 'fail' with detailed report if differences exist.")
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Options:")
+	flag.PrintDefaults()
+	fmt.Fprintln(os.Stderr, "")
+	fmt.Fprintln(os.Stderr, "Exit codes:")
+	fmt.Fprintln(os.Stderr, "  0  Directories match")
+	fmt.Fprintln(os.Stderr, "  1  Directories differ")
+	fmt.Fprintln(os.Stderr, "  2  Error occurred")
+}
+
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Fprintln(os.Stderr, "Usage: dircmp <dir_a> <dir_b>")
-		fmt.Fprintln(os.Stderr, "")
-		fmt.Fprintln(os.Stderr, "Compares two directories by file content.")
-		fmt.Fprintln(os.Stderr, "Returns 'ok' if both contain identical files (regardless of names/paths).")
-		fmt.Fprintln(os.Stderr, "Returns 'fail' with detailed report if differences exist.")
+	flag.Parse()
+
+	if flag.NArg() != 2 {
+		usage()
 		os.Exit(1)
 	}
 
-	dirA := os.Args[1]
-	dirB := os.Args[2]
+	dirA := flag.Arg(0)
+	dirB := flag.Arg(1)
 
 	// Scan both directories
+	logf("Scanning %s...", dirA)
 	scanA, err := scan(dirA)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error scanning %s: %v\n", dirA, err)
 		os.Exit(2)
 	}
+	logf("Found %d files (%d unique) in %s", scanA.TotalFiles, len(scanA.HashCounts), dirA)
 
+	logf("Scanning %s...", dirB)
 	scanB, err := scan(dirB)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error scanning %s: %v\n", dirB, err)
 		os.Exit(2)
 	}
+	logf("Found %d files (%d unique) in %s", scanB.TotalFiles, len(scanB.HashCounts), dirB)
 
 	// Compare and report
 	if compare(dirA, dirB, scanA, scanB) {
 		os.Exit(0)
 	}
 	os.Exit(1)
+}
+
+// logf prints a message if verbose mode is enabled
+func logf(format string, args ...interface{}) {
+	if verbose {
+		fmt.Fprintf(os.Stderr, format+"\n", args...)
+	}
 }
 
 // fileJob represents a file to hash
@@ -102,9 +141,13 @@ func scan(dir string) (*DirScan, error) {
 
 	// Setup worker pool
 	numWorkers := runtime.NumCPU()
+	logf("Using %d workers for hashing", numWorkers)
 	jobs := make(chan fileJob, numWorkers*2)
 	results := make(chan fileResult, numWorkers*2)
 	var wg sync.WaitGroup
+
+	// Progress tracking
+	var filesFound, filesHashed atomic.Int64
 
 	// Start workers
 	for i := 0; i < numWorkers; i++ {
@@ -117,6 +160,12 @@ func scan(dir string) (*DirScan, error) {
 					fmt.Fprintf(os.Stderr, "warning: failed to hash %s: %v\n", job.relPath, err)
 					continue
 				}
+
+				hashed := filesHashed.Add(1)
+				if verbose && hashed%100 == 0 {
+					logf("Hashed %d files...", hashed)
+				}
+
 				results <- fileResult{
 					hash:    hash,
 					relPath: job.relPath,
@@ -174,6 +223,11 @@ func scan(dir string) (*DirScan, error) {
 		}
 
 		relPath, _ := filepath.Rel(absDir, path)
+
+		found := filesFound.Add(1)
+		if verbose && found%1000 == 0 {
+			logf("Found %d files...", found)
+		}
 
 		jobs <- fileJob{
 			path:    path,
