@@ -25,3 +25,9 @@ Thumbs.db
 
 # Streamlit
 .streamlit/
+
+# Testing
+.pytest_cache/
+.coverage
+.hypothesis/
+htmlcov/
