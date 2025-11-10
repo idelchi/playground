@@ -11,8 +11,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 import plotly.express as px
 import plotly.graph_objects as go
 from io import StringIO
@@ -25,8 +24,10 @@ import csv
 Base = declarative_base()
 BERLIN_TZ = pytz.timezone('Europe/Berlin')
 
-# Database engine
-engine = create_engine('sqlite:///trades.db', echo=False)
+# Database engine - use environment variable for testing
+import os
+DB_PATH = os.getenv('TRADING_JOURNAL_DB', 'trades.db')
+engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
 Session = sessionmaker(bind=engine)
 
 
@@ -233,7 +234,10 @@ def add_trade(trade_data):
         return True
     except Exception as e:
         session.rollback()
-        st.error(f"Error adding trade: {e}")
+        try:
+            st.error(f"Error adding trade: {e}")
+        except:
+            print(f"Error adding trade: {e}")
         return False
     finally:
         session.close()
@@ -243,6 +247,9 @@ def update_trade(trade_id, trade_data):
     """Update an existing trade"""
     session = Session()
     try:
+        # Convert trade_id to int (pandas returns numpy.int64)
+        trade_id = int(trade_id)
+
         trade = session.query(Trade).filter_by(id=trade_id).first()
         if not trade:
             return False
@@ -273,7 +280,12 @@ def update_trade(trade_id, trade_data):
         return True
     except Exception as e:
         session.rollback()
-        st.error(f"Error updating trade: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            st.error(f"Error updating trade: {e}")
+        except:
+            print(f"Error updating trade: {e}")
         return False
     finally:
         session.close()
@@ -283,12 +295,18 @@ def delete_trades(trade_ids):
     """Delete trades by IDs"""
     session = Session()
     try:
+        # Convert all IDs to int (pandas returns numpy.int64)
+        trade_ids = [int(tid) for tid in trade_ids]
+
         session.query(Trade).filter(Trade.id.in_(trade_ids)).delete(synchronize_session=False)
         session.commit()
         return True
     except Exception as e:
         session.rollback()
-        st.error(f"Error deleting trades: {e}")
+        try:
+            st.error(f"Error deleting trades: {e}")
+        except:
+            print(f"Error deleting trades: {e}")
         return False
     finally:
         session.close()
@@ -298,6 +316,9 @@ def duplicate_trade(trade_id):
     """Duplicate a trade (without id, created_at, updated_at)"""
     session = Session()
     try:
+        # Convert trade_id to int (pandas returns numpy.int64)
+        trade_id = int(trade_id)
+
         original = session.query(Trade).filter_by(id=trade_id).first()
         if not original:
             return False
@@ -319,7 +340,10 @@ def duplicate_trade(trade_id):
         return True
     except Exception as e:
         session.rollback()
-        st.error(f"Error duplicating trade: {e}")
+        try:
+            st.error(f"Error duplicating trade: {e}")
+        except:
+            print(f"Error duplicating trade: {e}")
         return False
     finally:
         session.close()
