@@ -26,7 +26,14 @@ BERLIN_TZ = pytz.timezone('Europe/Berlin')
 
 # Database engine - use environment variable for testing
 import os
-DB_PATH = os.getenv('TRADING_JOURNAL_DB', 'trades.db')
+
+# Use absolute path for database to ensure consistency across different working directories
+# This prevents the issue where running the app from different directories creates different DB files
+_default_db_name = 'trades.db'
+_app_directory = os.path.dirname(os.path.abspath(__file__))
+_default_db_path = os.path.join(_app_directory, _default_db_name)
+
+DB_PATH = os.getenv('TRADING_JOURNAL_DB', _default_db_path)
 engine = create_engine(f'sqlite:///{DB_PATH}', echo=False)
 Session = sessionmaker(bind=engine)
 
