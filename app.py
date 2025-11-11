@@ -205,6 +205,9 @@ def localize_datetime(dt, from_tz='UTC'):
     """Convert datetime to Berlin timezone for display."""
     if dt is None:
         return None
+    # Handle pandas NaT (Not a Time) values
+    if pd.isna(dt):
+        return None
     if isinstance(dt, str):
         dt = pd.to_datetime(dt)
     if dt.tzinfo is None:
@@ -214,6 +217,9 @@ def localize_datetime(dt, from_tz='UTC'):
 def to_utc(dt):
     """Convert Berlin datetime to UTC for storage."""
     if dt is None:
+        return None
+    # Handle pandas NaT (Not a Time) values
+    if pd.isna(dt):
         return None
     if isinstance(dt, str):
         dt = pd.to_datetime(dt)
