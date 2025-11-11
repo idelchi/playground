@@ -439,9 +439,15 @@ def render_new_trade_form():
             col1, col2, col3 = st.columns(3)
 
             with col1:
-                entry_ts = st.datetime_input(
-                    "Entry Timestamp",
-                    value=datetime.now(BERLIN_TZ),
+                # Entry date and time
+                entry_date = st.date_input(
+                    "Entry Date",
+                    value=datetime.now(BERLIN_TZ).date(),
+                    help="Europe/Berlin timezone"
+                )
+                entry_time = st.time_input(
+                    "Entry Time",
+                    value=datetime.now(BERLIN_TZ).time(),
                     help="Europe/Berlin timezone"
                 )
                 pair = st.text_input("Pair", value="BTC/USDT", placeholder="e.g., BTC/USDT")
@@ -449,10 +455,16 @@ def render_new_trade_form():
                 leverage_x = st.number_input("Leverage (x)", min_value=0.1, value=5.0, step=0.5, format="%.1f")
 
             with col2:
-                exit_ts = st.datetime_input(
-                    "Exit Timestamp (optional)",
+                # Exit date and time (optional)
+                exit_date = st.date_input(
+                    "Exit Date (optional)",
                     value=None,
                     help="Leave empty if position is still open"
+                )
+                exit_time = st.time_input(
+                    "Exit Time (optional)",
+                    value=datetime.now(BERLIN_TZ).time(),
+                    help="Only used if Exit Date is set"
                 )
                 position_notional = st.number_input("Position Notional (USD)", min_value=0.0, value=1000.0, step=10.0, format="%.2f")
                 entry_price = st.number_input("Entry Price", min_value=0.0, value=0.0, step=0.01, format="%.8f")
@@ -525,10 +537,16 @@ def render_new_trade_form():
                     st.error("Position notional must be greater than 0")
                     return
 
+                # Combine date and time into datetime objects
+                entry_ts = BERLIN_TZ.localize(datetime.combine(entry_date, entry_time))
+                exit_ts = None
+                if exit_date is not None:
+                    exit_ts = BERLIN_TZ.localize(datetime.combine(exit_date, exit_time))
+
                 # Prepare trade data
                 trade_data = {
                     'entry_ts': entry_ts,
-                    'exit_ts': exit_ts if exit_ts else None,
+                    'exit_ts': exit_ts,
                     'pair': pair,
                     'direction': direction,
                     'leverage_x': leverage_x,
@@ -700,17 +718,31 @@ def render_edit_trade_form(trade_id):
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            entry_ts = st.datetime_input(
-                "Entry Timestamp",
-                value=localize_datetime(trade['entry_ts']) if trade['entry_ts'] else datetime.now(BERLIN_TZ)
+            # Entry date and time
+            entry_dt = localize_datetime(trade['entry_ts']) if trade['entry_ts'] else datetime.now(BERLIN_TZ)
+            entry_date = st.date_input(
+                "Entry Date",
+                value=entry_dt.date() if entry_dt else datetime.now(BERLIN_TZ).date()
+            )
+            entry_time = st.time_input(
+                "Entry Time",
+                value=entry_dt.time() if entry_dt else datetime.now(BERLIN_TZ).time()
             )
             pair = st.text_input("Pair", value=trade['pair'] or "")
             direction = st.selectbox("Direction", ["Long", "Short"], index=0 if trade['direction'] == 'Long' else 1)
             leverage_x = st.number_input("Leverage (x)", min_value=0.1, value=float(trade['leverage_x'] or 1.0), step=0.5, format="%.1f")
 
         with col2:
-            exit_ts_value = localize_datetime(trade['exit_ts']) if trade.get('exit_ts') else None
-            exit_ts = st.datetime_input("Exit Timestamp (optional)", value=exit_ts_value)
+            # Exit date and time (optional)
+            exit_dt = localize_datetime(trade['exit_ts']) if trade.get('exit_ts') else None
+            exit_date = st.date_input(
+                "Exit Date (optional)",
+                value=exit_dt.date() if exit_dt else None
+            )
+            exit_time = st.time_input(
+                "Exit Time (optional)",
+                value=exit_dt.time() if exit_dt else datetime.now(BERLIN_TZ).time()
+            )
             position_notional = st.number_input("Position Notional (USD)", min_value=0.0, value=float(trade['position_notional'] or 0.0), step=10.0, format="%.2f")
             entry_price = st.number_input("Entry Price", min_value=0.0, value=float(trade['entry_price'] or 0.0), step=0.01, format="%.8f")
             stop_price = st.number_input("Stop Price", min_value=0.0, value=float(trade['stop_price'] or 0.0), step=0.01, format="%.8f")
@@ -784,9 +816,15 @@ def render_edit_trade_form(trade_id):
             st.rerun()
 
         if submitted:
+            # Combine date and time into datetime objects
+            entry_ts = BERLIN_TZ.localize(datetime.combine(entry_date, entry_time))
+            exit_ts = None
+            if exit_date is not None:
+                exit_ts = BERLIN_TZ.localize(datetime.combine(exit_date, exit_time))
+
             trade_data = {
                 'entry_ts': entry_ts,
-                'exit_ts': exit_ts if exit_ts else None,
+                'exit_ts': exit_ts,
                 'pair': pair,
                 'direction': direction,
                 'leverage_x': leverage_x,
