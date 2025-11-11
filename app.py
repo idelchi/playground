@@ -390,6 +390,8 @@ def main():
     # Initialize session state
     if 'refresh' not in st.session_state:
         st.session_state.refresh = 0
+    if 'filters_initialized' not in st.session_state:
+        st.session_state.filters_initialized = False
 
     # ========================================================================
     # SIDEBAR - FILTERS & CONTROLS
@@ -400,6 +402,12 @@ def main():
 
         # Load all trades for filter options
         all_trades_df = get_all_trades()
+
+        # Reset filters if we have new data and filters weren't properly initialized
+        if not all_trades_df.empty and not st.session_state.filters_initialized:
+            st.session_state.filters_initialized = True
+            # Force a rerun to reinitialize filters with proper defaults
+            st.rerun()
 
         # Starting balance for equity curve
         starting_balance = st.number_input(
@@ -431,7 +439,8 @@ def main():
             selected_pairs = st.multiselect(
                 "Trading Pairs",
                 options=unique_pairs,
-                default=unique_pairs
+                default=unique_pairs,
+                key="filter_pairs"
             )
         else:
             selected_pairs = []
@@ -440,7 +449,8 @@ def main():
         selected_direction = st.multiselect(
             "Direction",
             options=['Long', 'Short'],
-            default=['Long', 'Short']
+            default=['Long', 'Short'],
+            key="filter_direction"
         )
 
         # Exchange filter
@@ -449,7 +459,8 @@ def main():
             selected_exchanges = st.multiselect(
                 "Exchanges",
                 options=unique_exchanges,
-                default=unique_exchanges
+                default=unique_exchanges,
+                key="filter_exchanges"
             )
         else:
             selected_exchanges = []
@@ -460,7 +471,8 @@ def main():
             selected_strategies = st.multiselect(
                 "Strategies",
                 options=unique_strategies,
-                default=unique_strategies
+                default=unique_strategies,
+                key="filter_strategies"
             )
         else:
             selected_strategies = []
@@ -469,13 +481,16 @@ def main():
         selected_win_loss = st.multiselect(
             "Win/Loss",
             options=['Win', 'Loss', 'Breakeven'],
-            default=['Win', 'Loss', 'Breakeven']
+            default=['Win', 'Loss', 'Breakeven'],
+            key="filter_win_loss"
         )
 
         st.divider()
 
         if st.button("🔄 Refresh Data"):
             st.session_state.refresh += 1
+            # Reset filter initialization to allow filters to update with new data
+            st.session_state.filters_initialized = False
             st.rerun()
 
     # ========================================================================
@@ -635,6 +650,8 @@ def main():
                     if add_trade(trade_data):
                         st.success("✅ Trade saved successfully!")
                         st.session_state.refresh += 1
+                        # Reset filters to pick up new data
+                        st.session_state.filters_initialized = False
                         st.rerun()
 
     # ========================================================================
@@ -690,6 +707,7 @@ def main():
 
                             st.success(f"✅ Imported {len(import_df)} trades!")
                             st.session_state.refresh += 1
+                            st.session_state.filters_initialized = False
                             st.rerun()
                     except Exception as e:
                         st.error(f"Import error: {e}")
@@ -735,6 +753,7 @@ def main():
                             if delete_trades([selected_id]):
                                 st.success("Trade deleted!")
                                 st.session_state.refresh += 1
+                                st.session_state.filters_initialized = False
                                 st.rerun()
 
                     with col_btn2:
@@ -742,6 +761,7 @@ def main():
                             if duplicate_trade(selected_id):
                                 st.success("Trade duplicated!")
                                 st.session_state.refresh += 1
+                                st.session_state.filters_initialized = False
                                 st.rerun()
 
                     with st.expander("📝 Edit Trade", expanded=True):
@@ -836,6 +856,7 @@ def main():
                                 if update_trade(selected_id, update_data):
                                     st.success("✅ Trade updated!")
                                     st.session_state.refresh += 1
+                                    st.session_state.filters_initialized = False
                                     st.rerun()
 
                     # Show full details
