@@ -4,24 +4,23 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	"path/filepath"
+	"strings"
 )
 
 func main() {
-	fmt.Println("-----------------------------")
-	fmt.Printf("USER=%s\n", os.Getenv("USER"))
-	fmt.Printf("USERNAME=%s\n", os.Getenv("USERNAME"))
-	fmt.Printf("HOME=%s\n", filepath.ToSlash(os.Getenv("HOME")))
+	USER := os.Getenv("USER")
+
+	if usr, err := user.Current(); err == nil {
+		if USER == "" {
+			name := usr.Username
+			if i := strings.LastIndex(name, `\`); i >= 0 {
+				name = name[i+1:]
+			}
+			USER = name
+		}
+	}
 
 	fmt.Println("-----------------------------")
-
-	usr, _ := user.Current()
-	fmt.Printf("user.Name=%s\n", usr.Name)
-
-	fmt.Printf("user.Username=%s\n", usr.Username)
-
-	fmt.Printf("user.HomeDir=%s\n", filepath.ToSlash(usr.HomeDir))
-
+	fmt.Printf("USER=%s\n", USER)
 	fmt.Println("-----------------------------")
-
 }
